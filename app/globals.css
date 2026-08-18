@@ -218,3 +218,71 @@ body {
     animation: none;
   }
 }
+
+/*
+ * Entrada del temporizador al cargar la página: breve y sutil, para que
+ * quede claro que el minuto ya empezó a correr (el conteo en sí arranca de
+ * inmediato, en paralelo — esta animación no lo retrasa, solo lo acompaña).
+ */
+@keyframes fp-timer-intro {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(-6px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.05) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.fp-timer-intro {
+  animation: fp-timer-intro 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-timer-intro {
+    animation: none;
+  }
+}
+
+/*
+ * Migas que deja la empanada al moverse: puntitos muy chicos que aparecen
+ * y se apagan solos. Son divs reciclados (pool fijo) posicionados por JS
+ * en Maze.tsx — el fade lo hace esta animación, no un temporizador en JS.
+ */
+.fp-crumb {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #d99a52;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes fp-crumb-fade {
+  0% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.35);
+  }
+}
+
+.fp-crumb.fp-crumb-active {
+  animation: fp-crumb-fade 700ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-crumb.fp-crumb-active {
+    animation: none;
+    opacity: 0;
+  }
+}

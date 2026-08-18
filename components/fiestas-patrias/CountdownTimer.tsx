@@ -14,11 +14,10 @@ function formatTime(totalSeconds: number) {
 
 type CountdownTimerProps = {
   /**
-   * Solo descuenta mientras esto es true. Arranca en `false` (se queda
-   * quieto en 01:00) hasta que el padre confirma la primera interacción
-   * del usuario con el laberinto — así no se le resta tiempo a nadie por
-   * el solo hecho de cargar la página. También se pone en false al ganar,
-   * para congelar el conteo.
+   * Solo descuenta mientras esto es true. El padre la pasa en `true` desde
+   * el primer render (fase "playing"), así que el conteo arranca de
+   * inmediato al cargar la página — no espera ninguna interacción. Se pone
+   * en `false` al ganar o al agotarse el tiempo, para congelar el conteo.
    */
   running: boolean;
   /** Se llama una sola vez, justo después de la animación de "tiempo agotado". */
@@ -26,11 +25,13 @@ type CountdownTimerProps = {
 };
 
 /**
- * Cuenta regresiva de 1 minuto. No se reinicia sola: al llegar a 0 juega
- * una pequeña animación y avisa al padre vía onExpire, que decide qué
- * hacer (mostrar la pantalla de "Volver a intentar"). El padre es quien la
- * reinicia — remontándola con una key distinta — cuando el usuario vuelve
- * a intentarlo.
+ * Cuenta regresiva de 1 minuto: arranca sola apenas se monta (no espera
+ * interacción del usuario) y juega una pequeña entrada (fp-timer-intro)
+ * para que quede claro que el tiempo ya empezó a correr. No se reinicia
+ * sola: al llegar a 0 juega otra pequeña animación (fp-timer-expire) y
+ * avisa al padre vía onExpire, que decide qué hacer (mostrar la pantalla
+ * de "Volver a intentar"). El padre es quien la reinicia — remontándola
+ * con una key distinta — cuando el usuario vuelve a intentarlo.
  */
 export function CountdownTimer({ running, onExpire }: CountdownTimerProps) {
   const [secondsLeft, setSecondsLeft] = useState(DURATION_SECONDS);
@@ -57,7 +58,7 @@ export function CountdownTimer({ running, onExpire }: CountdownTimerProps) {
   }, [running, secondsLeft, onExpire]);
 
   return (
-    <div className={`flex flex-col items-center gap-1.5 lg:items-start ${expired ? "fp-timer-expire" : ""}`}>
+    <div className={`flex flex-col items-center gap-1.5 lg:items-start ${expired ? "fp-timer-expire" : "fp-timer-intro"}`}>
       <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8FE3D9] sm:text-sm">
         ¡Inicia el juego!
       </p>

@@ -37,7 +37,6 @@ type Phase = "playing" | "celebrating" | "won" | "timeout";
 
 export function MazeGameExperience() {
   const [phase, setPhase] = useState<Phase>("playing");
-  const [hasInteracted, setHasInteracted] = useState(false);
   /** Se incrementa en cada "Volver a intentar": fuerza a remontar el laberinto y el temporizador, reiniciándolos por completo. */
   const [attempt, setAttempt] = useState(0);
   const timeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
@@ -46,17 +45,12 @@ export function MazeGameExperience() {
     setPhase((current) => (current === "playing" ? "celebrating" : current));
   }, []);
 
-  const handleInteract = useCallback(() => {
-    setHasInteracted(true);
-  }, []);
-
   const handleTimeExpire = useCallback(() => {
     setPhase((current) => (current === "playing" ? "timeout" : current));
   }, []);
 
   const handleRetry = useCallback(() => {
     setPhase("playing");
-    setHasInteracted(false);
     setAttempt((current) => current + 1);
   }, []);
 
@@ -133,13 +127,14 @@ export function MazeGameExperience() {
               centrado bajo el título; en escritorio (lg+) se saca del
               flujo y se integra al encabezado, a la derecha de la columna
               central y alineado con el título — no pegado al borde de la
-              pantalla.
+              pantalla. Arranca sola apenas se monta (running=true desde el
+              primer render): no espera ninguna interacción del usuario.
             */}
             {phase !== "timeout" && (
               <div className="mt-2 lg:absolute lg:left-full lg:top-1 lg:mt-0 lg:ml-8">
                 <CountdownTimer
                   key={attempt}
-                  running={hasInteracted && phase === "playing"}
+                  running={phase === "playing"}
                   onExpire={handleTimeExpire}
                 />
               </div>
@@ -150,7 +145,7 @@ export function MazeGameExperience() {
             className="mt-1 w-full max-w-[330px] overflow-hidden rounded-[26px] border border-white/10 shadow-[0_20px_50px_-14px_rgba(0,0,0,0.65)] sm:max-w-[380px]"
             style={{ aspectRatio: MAZE_MODULE_ASPECT }}
           >
-            <Maze key={attempt} active={phase === "playing"} onWin={handleWin} onInteract={handleInteract} />
+            <Maze key={attempt} active={phase === "playing"} onWin={handleWin} />
           </div>
 
           <p className="text-xs text-white/55 sm:text-sm">

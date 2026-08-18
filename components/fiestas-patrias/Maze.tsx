@@ -28,21 +28,32 @@ const VIEW_X0 = -MAZE.sideMargin;
 const EMPANADA_WIDTH_UNITS = 0.82;
 const EMPANADA_ASPECT = 245 / 480;
 
+/**
+ * Migas: un pool fijo de divs reciclados (no se crean/destruyen nodos en
+ * cada frame, así queda liviano en mobile). Cada uno se "activa" cuando la
+ * empanada avanzó al menos CRUMB_MIN_DISTANCE desde la última miga; el
+ * fade lo hace la animación CSS `fp-crumb-fade` (globals.css), no un
+ * temporizador en JS — por eso no hace falta limpiar nada para que
+ * "desaparezcan solas y no se acumulen".
+ */
+const CRUMB_POOL_SIZE = 12;
+const CRUMB_MIN_DISTANCE = 0.16;
+
 type MazeProps = {
   /** false congela el juego (se usa mientras se muestra la celebración de victoria). */
   active: boolean;
   onWin: () => void;
-  /** Se llama una sola vez, en la primera interacción real del usuario con el laberinto. */
-  onInteract?: () => void;
 };
 
-export function Maze({ active, onWin, onInteract }: MazeProps) {
+export function Maze({ active, onWin }: MazeProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const empanadaRef = useRef<HTMLDivElement>(null);
+  const crumbRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const crumbIndexRef = useRef(0);
+  const lastCrumbPosRef = useRef<Point>(START_POINT);
   const positionRef = useRef<Point>(START_POINT);
   const targetRef = useRef<Point>(START_POINT);
   const wonRef = useRef(false);
-  const hasInteractedRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
   const [celebrating, setCelebrating] = useState(false);
@@ -56,18 +67,13 @@ export function Maze({ active, onWin, onInteract }: MazeProps) {
       const rect = svg.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
 
-      if (!hasInteractedRef.current) {
-        hasInteractedRef.current = true;
-        onInteract?.();
-      }
-
       const x = ((clientX - rect.left) / rect.width) * VIEW_COLS + VIEW_X0;
       let y = ((clientY - rect.top) / rect.height) * VIEW_ROWS + VIEW_Y0;
       if (isTouch) y += TOUCH_Y_OFFSET;
 
       targetRef.current = [x, y];
     },
-    [onInteract]
+    []
   );
 
   // Listeners nativos (no props onX de React) para poder llamar
@@ -117,6 +123,29 @@ export function Maze({ active, onWin, onInteract }: MazeProps) {
       const desired: Point = [px + (tx - px) * factor, py + (ty - py) * factor];
       const next = moveWithCollision(positionRef.current, desired);
       positionRef.current = next;
+
+      // Migas: solo dejan una cuando la empanada ya avanzó una distancia
+      // mínima desde la última (si no, se activaría un pool entero por
+      // segundo con la empanada casi quieta). Puramente visual: no toca
+      // targetRef/positionRef ni la colisión.
+      const [lastCx, lastCy] = lastCrumbPosRef.current;
+      if (Math.hypot(next[0] - lastCx, next[1] - lastCy) >= CRUMB_MIN_DISTANCE) {
+        const crumb = crumbRefs.current[crumbIndexRef.current];
+        if (crumb) {
+          crumb.style.left = `${((lastCx - VIEW_X0) / VIEW_COLS) * 100}%`;
+          crumb.style.top = `${((lastCy - VIEW_Y0) / VIEW_ROWS) * 100}%`;
+          crumb.classList.remove("fp-crumb-active");
+          // Fuerza un reflow para que el navegador "note" el quite de la
+          // clase antes de volver a agregarla: si no, al ya estar la
+          // animación aplicada de una activación anterior, re-agregar la
+          // misma clase no la reinicia (CSS no re-dispara una animación ya
+          // en curso solo porque el className no cambió de valor).
+          void crumb.offsetWidth;
+          crumb.classList.add("fp-crumb-active");
+        }
+        crumbIndexRef.current = (crumbIndexRef.current + 1) % CRUMB_POOL_SIZE;
+        lastCrumbPosRef.current = next;
+      }
 
       // La empanada ya no es parte del SVG: es un <div> posicionado encima
       // vía left/top en porcentaje (coinciden con las unidades de grilla
@@ -303,6 +332,22 @@ export function Maze({ active, onWin, onInteract }: MazeProps) {
           META
         </text>
       </svg>
+
+      {/*
+        Pool fijo de "migas": se posicionan y activan imperativamente desde
+        el loop RAF (arriba), nunca vía estado de React — evita re-renders
+        por cada miga y mantiene esto liviano en mobile. Van antes que la
+        empanada en el DOM para quedar visualmente detrás de ella.
+      */}
+      {Array.from({ length: CRUMB_POOL_SIZE }, (_, index) => (
+        <div
+          key={index}
+          ref={(el) => {
+            crumbRefs.current[index] = el;
+          }}
+          className="fp-crumb"
+        />
+      ))}
 
       {/*
         La empanada vive fuera del SVG (un <div> absoluto posicionado en
