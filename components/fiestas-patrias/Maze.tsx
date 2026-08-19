@@ -2,27 +2,12 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  GOAL_POINT,
-  MAZE,
-  START_POINT,
-  getWallSegments,
-  hasReachedGoal,
-  moveWithCollision,
-  type Point,
-} from "./mazePath";
+import type { MazeLayout, Point } from "./mazePath";
 
 /** Menor = la empanada responde más rápido al cursor; mayor = más "inercia". */
 const SMOOTHING_TAU = 0.07;
 /** Sube el objetivo en touch (unidades de grilla) para que el dedo no tape a la empanada. */
 const TOUCH_Y_OFFSET = -0.55;
-
-/** Alto total del viewBox, incluyendo la franja para INICIO/META arriba y abajo. */
-const VIEW_ROWS = MAZE.rows + MAZE.labelMargin * 2;
-const VIEW_Y0 = -MAZE.labelMargin;
-/** Ancho total del viewBox, incluyendo el margen decorativo a cada lado. */
-const VIEW_COLS = MAZE.cols + MAZE.sideMargin * 2;
-const VIEW_X0 = -MAZE.sideMargin;
 
 /** Ancho de la empanada, en unidades de grilla (la imagen es más ancha que alta: ~1.96:1). */
 const EMPANADA_WIDTH_UNITS = 0.82;
@@ -40,19 +25,40 @@ const CRUMB_POOL_SIZE = 12;
 const CRUMB_MIN_DISTANCE = 0.16;
 
 type MazeProps = {
+  /** Qué grilla/recorrido usar (MOBILE_MAZE o DESKTOP_MAZE, ver mazePath.ts). */
+  layout: MazeLayout;
+  /**
+   * Identificador único de esta instancia ("mobile" | "desktop"): las dos
+   * variantes están montadas al mismo tiempo (CSS decide cuál se ve), así
+   * que sus <defs> (gradientes, filtros, patrón) necesitan ids distintos
+   * — dos elementos con el mismo id en la misma página es inválido y hace
+   * que las referencias `url(#id)` puedan resolver al elemento equivocado
+   * (por ejemplo, al de la instancia oculta).
+   */
+  instanceId: string;
   /** false congela el juego (se usa mientras se muestra la celebración de victoria). */
   active: boolean;
   onWin: () => void;
 };
 
-export function Maze({ active, onWin }: MazeProps) {
+export function Maze({ layout, instanceId, active, onWin }: MazeProps) {
+  const { config, startPoint, goalPoint } = layout;
+  const id = (name: string) => `fp-${name}-${instanceId}`;
+
+  /** Alto total del viewBox, incluyendo la franja para INICIO/META arriba y abajo. */
+  const viewRows = config.rows + config.labelMargin * 2;
+  const viewY0 = -config.labelMargin;
+  /** Ancho total del viewBox, incluyendo el margen decorativo a cada lado. */
+  const viewCols = config.cols + config.sideMargin * 2;
+  const viewX0 = -config.sideMargin;
+
   const svgRef = useRef<SVGSVGElement>(null);
   const empanadaRef = useRef<HTMLDivElement>(null);
   const crumbRefs = useRef<(HTMLDivElement | null)[]>([]);
   const crumbIndexRef = useRef(0);
-  const lastCrumbPosRef = useRef<Point>(START_POINT);
-  const positionRef = useRef<Point>(START_POINT);
-  const targetRef = useRef<Point>(START_POINT);
+  const lastCrumbPosRef = useRef<Point>(startPoint);
+  const positionRef = useRef<Point>(startPoint);
+  const targetRef = useRef<Point>(startPoint);
   const wonRef = useRef(false);
   const frameRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number | null>(null);
@@ -67,13 +73,13 @@ export function Maze({ active, onWin }: MazeProps) {
       const rect = svg.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
 
-      const x = ((clientX - rect.left) / rect.width) * VIEW_COLS + VIEW_X0;
-      let y = ((clientY - rect.top) / rect.height) * VIEW_ROWS + VIEW_Y0;
+      const x = ((clientX - rect.left) / rect.width) * viewCols + viewX0;
+      let y = ((clientY - rect.top) / rect.height) * viewRows + viewY0;
       if (isTouch) y += TOUCH_Y_OFFSET;
 
       targetRef.current = [x, y];
     },
-    []
+    [viewCols, viewX0, viewRows, viewY0]
   );
 
   // Listeners nativos (no props onX de React) para poder llamar
@@ -121,7 +127,7 @@ export function Maze({ active, onWin }: MazeProps) {
       const [px, py] = positionRef.current;
       const [tx, ty] = targetRef.current;
       const desired: Point = [px + (tx - px) * factor, py + (ty - py) * factor];
-      const next = moveWithCollision(positionRef.current, desired);
+      const next = layout.moveWithCollision(positionRef.current, desired);
       positionRef.current = next;
 
       // Migas: solo dejan una cuando la empanada ya avanzó una distancia
@@ -132,8 +138,8 @@ export function Maze({ active, onWin }: MazeProps) {
       if (Math.hypot(next[0] - lastCx, next[1] - lastCy) >= CRUMB_MIN_DISTANCE) {
         const crumb = crumbRefs.current[crumbIndexRef.current];
         if (crumb) {
-          crumb.style.left = `${((lastCx - VIEW_X0) / VIEW_COLS) * 100}%`;
-          crumb.style.top = `${((lastCy - VIEW_Y0) / VIEW_ROWS) * 100}%`;
+          crumb.style.left = `${((lastCx - viewX0) / viewCols) * 100}%`;
+          crumb.style.top = `${((lastCy - viewY0) / viewRows) * 100}%`;
           crumb.classList.remove("fp-crumb-active");
           // Fuerza un reflow para que el navegador "note" el quite de la
           // clase antes de volver a agregarla: si no, al ya estar la
@@ -154,11 +160,11 @@ export function Maze({ active, onWin }: MazeProps) {
       // <image> dentro del SVG.
       const el = empanadaRef.current;
       if (el) {
-        el.style.left = `${((next[0] - VIEW_X0) / VIEW_COLS) * 100}%`;
-        el.style.top = `${((next[1] - VIEW_Y0) / VIEW_ROWS) * 100}%`;
+        el.style.left = `${((next[0] - viewX0) / viewCols) * 100}%`;
+        el.style.top = `${((next[1] - viewY0) / viewRows) * 100}%`;
       }
 
-      if (!wonRef.current && hasReachedGoal(next)) {
+      if (!wonRef.current && layout.hasReachedGoal(next)) {
         wonRef.current = true;
         setCelebrating(true);
         onWin();
@@ -171,43 +177,50 @@ export function Maze({ active, onWin }: MazeProps) {
     return () => {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
     };
-  }, [active, onWin]);
+  }, [active, onWin, layout, viewX0, viewY0, viewCols, viewRows]);
 
   // --- Renderizado: laberinto clásico de paredes continuas ---
 
-  const wallPathD = getWallSegments()
+  const wallPathD = layout
+    .getWallSegments()
     .map(([[x1, y1], [x2, y2]]) => `M${x1},${y1} L${x2},${y2}`)
     .join(" ");
 
-  const empanadaWidthPct = (EMPANADA_WIDTH_UNITS / VIEW_COLS) * 100;
-  const empanadaHeightPct = ((EMPANADA_WIDTH_UNITS * EMPANADA_ASPECT) / VIEW_ROWS) * 100;
+  const empanadaWidthPct = (EMPANADA_WIDTH_UNITS / viewCols) * 100;
+  const empanadaHeightPct = ((EMPANADA_WIDTH_UNITS * EMPANADA_ASPECT) / viewRows) * 100;
 
   return (
     <div className="relative h-full w-full">
       <svg
         ref={svgRef}
-        viewBox={`${VIEW_X0} ${VIEW_Y0} ${VIEW_COLS} ${VIEW_ROWS}`}
+        viewBox={`${viewX0} ${viewY0} ${viewCols} ${viewRows}`}
         className="block h-full w-full touch-none select-none"
         style={{ touchAction: "none" }}
       >
         <defs>
-          <filter id="fp-wall-glow" x="-60%" y="-60%" width="220%" height="220%">
+          <filter id={id("wall-glow")} x="-60%" y="-60%" width="220%" height="220%">
             <feGaussianBlur stdDeviation="0.035" />
           </filter>
-          <filter id="fp-wall-shadow" x="-60%" y="-60%" width="220%" height="220%">
+          <filter id={id("wall-shadow")} x="-60%" y="-60%" width="220%" height="220%">
             <feGaussianBlur stdDeviation="0.045" />
           </filter>
-          <radialGradient id="fp-gate-glow" cx="50%" cy="50%" r="50%">
+          <radialGradient id={id("gate-glow-subtle")} cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#6B5BFF" stopOpacity="0.4" />
             <stop offset="100%" stopColor="#6B5BFF" stopOpacity="0" />
           </radialGradient>
-          <linearGradient id="fp-maze-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          {/* Resplandor más grande, para el layout de escritorio (sutil, no un foco de luz) */}
+          <radialGradient id={id("gate-glow-bright")} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#C7BFFF" stopOpacity="0.65" />
+            <stop offset="45%" stopColor="#8B7CFF" stopOpacity="0.38" />
+            <stop offset="100%" stopColor="#6B5BFF" stopOpacity="0" />
+          </radialGradient>
+          <linearGradient id={id("maze-bg")} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#111F45" />
             <stop offset="100%" stopColor="#0B1730" />
           </linearGradient>
           {/* Cuadros de la cinta de llegada, como una bandera a cuadros clásica */}
           <pattern
-            id="fp-finish-checker"
+            id={id("finish-checker")}
             width={0.1}
             height={0.1}
             patternUnits="userSpaceOnUse"
@@ -224,18 +237,23 @@ export function Maze({ active, onWin }: MazeProps) {
           fondo de la página) para que la tarjeta se distinga sin competir
           con las paredes.
         */}
-        <rect
-          x={VIEW_X0}
-          y={VIEW_Y0}
-          width={VIEW_COLS}
-          height={VIEW_ROWS}
-          rx={0.26}
-          fill="url(#fp-maze-bg)"
-        />
+        <rect x={viewX0} y={viewY0} width={viewCols} height={viewRows} rx={0.26} fill={`url(#${id("maze-bg")})`} />
 
         {/* Resplandor detrás de la entrada y la salida, para destacarlas */}
-        <ellipse cx={START_POINT[0]} cy={MAZE.rows} rx={0.5} ry={0.36} fill="url(#fp-gate-glow)" />
-        <ellipse cx={GOAL_POINT[0]} cy={0} rx={0.5} ry={0.36} fill="url(#fp-gate-glow)" />
+        <ellipse
+          cx={startPoint[0]}
+          cy={config.rows}
+          rx={config.gateGlow.rx}
+          ry={config.gateGlow.ry}
+          fill={`url(#${id(`gate-glow-${config.gateGlow.variant}`)})`}
+        />
+        <ellipse
+          cx={goalPoint[0]}
+          cy={0}
+          rx={config.gateGlow.rx}
+          ry={config.gateGlow.ry}
+          fill={`url(#${id(`gate-glow-${config.gateGlow.variant}`)})`}
+        />
 
         {/*
           Laberinto clásico: un único trazo con extremos y uniones
@@ -253,7 +271,7 @@ export function Maze({ active, onWin }: MazeProps) {
           strokeWidth={0.2}
           strokeLinecap="round"
           strokeLinejoin="round"
-          filter="url(#fp-wall-shadow)"
+          filter={`url(#${id("wall-shadow")})`}
         />
         <path
           d={wallPathD}
@@ -263,7 +281,7 @@ export function Maze({ active, onWin }: MazeProps) {
           strokeLinecap="round"
           strokeLinejoin="round"
           opacity={0.22}
-          filter="url(#fp-wall-glow)"
+          filter={`url(#${id("wall-glow")})`}
         />
         <path
           d={wallPathD}
@@ -276,8 +294,8 @@ export function Maze({ active, onWin }: MazeProps) {
 
         {/* Etiquetas de inicio y meta, centradas en su propia columna (no corridas a un lado) */}
         <text
-          x={START_POINT[0]}
-          y={MAZE.rows + MAZE.labelMargin * 0.62}
+          x={startPoint[0]}
+          y={config.rows + config.labelMargin * 0.62}
           textAnchor="middle"
           fontSize={0.17}
           fontWeight={700}
@@ -292,9 +310,9 @@ export function Maze({ active, onWin }: MazeProps) {
           rígido), a la altura de la salida del laberinto.
         */}
         <line
-          x1={GOAL_POINT[0] - 0.4}
+          x1={goalPoint[0] - 0.4}
           y1={0.13}
-          x2={GOAL_POINT[0] - 0.4}
+          x2={goalPoint[0] - 0.4}
           y2={-0.27}
           stroke="#C9BFFF"
           strokeWidth={0.045}
@@ -302,26 +320,26 @@ export function Maze({ active, onWin }: MazeProps) {
           opacity={0.9}
         />
         <line
-          x1={GOAL_POINT[0] + 0.4}
+          x1={goalPoint[0] + 0.4}
           y1={0.13}
-          x2={GOAL_POINT[0] + 0.4}
+          x2={goalPoint[0] + 0.4}
           y2={-0.27}
           stroke="#C9BFFF"
           strokeWidth={0.045}
           strokeLinecap="round"
           opacity={0.9}
         />
-        <circle cx={GOAL_POINT[0] - 0.4} cy={-0.27} r={0.032} fill="#DCD5FF" />
-        <circle cx={GOAL_POINT[0] + 0.4} cy={-0.27} r={0.032} fill="#DCD5FF" />
+        <circle cx={goalPoint[0] - 0.4} cy={-0.27} r={0.032} fill="#DCD5FF" />
+        <circle cx={goalPoint[0] + 0.4} cy={-0.27} r={0.032} fill="#DCD5FF" />
         <path
-          d={`M${GOAL_POINT[0] - 0.4},0.05 Q${GOAL_POINT[0]},-0.05 ${GOAL_POINT[0] + 0.4},0.05 L${GOAL_POINT[0] + 0.4},-0.05 Q${GOAL_POINT[0]},-0.15 ${GOAL_POINT[0] - 0.4},-0.05 Z`}
-          fill="url(#fp-finish-checker)"
+          d={`M${goalPoint[0] - 0.4},0.05 Q${goalPoint[0]},-0.05 ${goalPoint[0] + 0.4},0.05 L${goalPoint[0] + 0.4},-0.05 Q${goalPoint[0]},-0.15 ${goalPoint[0] - 0.4},-0.05 Z`}
+          fill={`url(#${id("finish-checker")})`}
           stroke="#8B7FFF"
           strokeWidth={0.012}
           strokeLinejoin="round"
         />
         <text
-          x={GOAL_POINT[0]}
+          x={goalPoint[0]}
           y={-0.34}
           textAnchor="middle"
           fontSize={0.17}
@@ -361,8 +379,8 @@ export function Maze({ active, onWin }: MazeProps) {
         ref={empanadaRef}
         className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
         style={{
-          left: `${((START_POINT[0] - VIEW_X0) / VIEW_COLS) * 100}%`,
-          top: `${((START_POINT[1] - VIEW_Y0) / VIEW_ROWS) * 100}%`,
+          left: `${((startPoint[0] - viewX0) / viewCols) * 100}%`,
+          top: `${((startPoint[1] - viewY0) / viewRows) * 100}%`,
           width: `${empanadaWidthPct}%`,
           height: `${empanadaHeightPct}%`,
         }}

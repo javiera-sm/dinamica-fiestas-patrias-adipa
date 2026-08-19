@@ -7,17 +7,24 @@ import { ChileanPatternBackground } from "./ChileanPatternBackground";
 import { ClockIcon, CountdownTimer } from "./CountdownTimer";
 import { CouponCard } from "./CouponCard";
 import { Maze } from "./Maze";
-import { MAZE } from "./mazePath";
+import { Streamers } from "./Streamers";
+import { DESKTOP_MAZE, MOBILE_MAZE, type MazeLayout } from "./mazePath";
 
 /**
  * Relación de aspecto real del contenido dibujado dentro del SVG del
  * laberinto (ancho de la grilla / alto de la grilla + la franja para
  * INICIO/META arriba y abajo). El contenedor usa esta MISMA proporción para
  * que el <svg> (que preserva su aspecto internamente) llene el módulo por
- * completo, sin franjas vacías a los costados que lo hacían ver más
- * angosto/vertical de lo que el espacio disponible permitía.
+ * completo, sin franjas vacías a los costados. Cada layout tiene la suya
+ * (el de escritorio es notoriamente más ancho que alto).
  */
-const MAZE_MODULE_ASPECT = `${MAZE.cols + MAZE.sideMargin * 2} / ${MAZE.rows + MAZE.labelMargin * 2}`;
+function moduleAspect(layout: MazeLayout) {
+  const { config } = layout;
+  return `${config.cols + config.sideMargin * 2} / ${config.rows + config.labelMargin * 2}`;
+}
+
+const MOBILE_MAZE_ASPECT = moduleAspect(MOBILE_MAZE);
+const DESKTOP_MAZE_ASPECT = moduleAspect(DESKTOP_MAZE);
 
 const COUPONS = [
   {
@@ -104,34 +111,37 @@ export function MazeGameExperience() {
 
       {showMaze ? (
         <div
-          className={`relative flex w-full max-w-md flex-col items-center gap-3 transition-opacity duration-500 sm:gap-4 ${
+          className={`relative flex w-full max-w-md flex-col items-center gap-3 transition-opacity duration-500 sm:gap-4 lg:max-w-5xl lg:gap-5 ${
             phase === "celebrating" || phase === "timeout" ? "opacity-90" : "opacity-100"
           }`}
         >
-          <div className="relative text-center">
+          {/*
+            Escritorio (lg+): el texto va ARRIBA ocupando casi todo el
+            ancho, y el laberinto va DEBAJO, centrado — nunca lado a lado
+            (eso es justo lo que se pidió corregir de la versión anterior).
+            Mobile/tablet quedan intactos (sin cambios).
+          */}
+          <div className="relative w-full text-center">
             <AdipaIsotype />
-            <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-[#B9AEFF] sm:text-xs">
+            <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-[#B9AEFF] sm:text-xs lg:text-sm">
               Fiestas Patrias ADIPA
             </p>
-            <h1 className="mt-1 text-lg font-extrabold text-white sm:text-2xl">
+            <h1 className="mt-1 text-lg font-extrabold text-white sm:text-2xl lg:mx-auto lg:mt-2 lg:max-w-3xl lg:text-[2rem] lg:leading-[1.15] xl:text-[2.75rem]">
               Ayuda a la empanada a llegar a la meta
             </h1>
-            <p className="fp-text-breathe mt-1.5 text-sm font-bold text-[#FBDA9B] sm:text-base">
+            <p className="fp-text-breathe mt-1.5 text-sm font-bold text-[#FBDA9B] sm:text-base lg:mt-2 lg:text-lg">
               Si lo logras, te regalamos un premio 🎁
             </p>
 
             {/*
-              Una sola instancia del temporizador, reposicionada por CSS
-              según el tamaño de pantalla (evita tener dos temporizadores
-              corriendo a la vez): en mobile queda en el flujo normal,
-              centrado bajo el título; en escritorio (lg+) se saca del
-              flujo y se integra al encabezado, a la derecha de la columna
-              central y alineado con el título — no pegado al borde de la
-              pantalla. Arranca sola apenas se monta (running=true desde el
+              Mobile/tablet: en el flujo normal, centrado bajo el título
+              (sin cambios). Escritorio (lg+): arriba, hacia la esquina
+              derecha del bloque de texto — al lado del contenido, no
+              debajo. Arranca sola apenas se monta (running=true desde el
               primer render): no espera ninguna interacción del usuario.
             */}
             {phase !== "timeout" && (
-              <div className="mt-2 lg:absolute lg:left-full lg:top-1 lg:mt-0 lg:ml-8">
+              <div className="mt-2 flex justify-center lg:absolute lg:right-0 lg:top-1 lg:mt-0">
                 <CountdownTimer
                   key={attempt}
                   running={phase === "playing"}
@@ -141,19 +151,43 @@ export function MazeGameExperience() {
             )}
           </div>
 
-          <div
-            className="mt-1 w-full max-w-[330px] overflow-hidden rounded-[26px] border border-white/10 shadow-[0_20px_50px_-14px_rgba(0,0,0,0.65)] sm:max-w-[380px]"
-            style={{ aspectRatio: MAZE_MODULE_ASPECT }}
-          >
-            <Maze key={attempt} active={phase === "playing"} onWin={handleWin} />
-          </div>
+          <div className="flex w-full flex-col items-center gap-3 sm:gap-4">
+            {/*
+              Dos variantes del laberinto: MISMA lógica/colisión (ver
+              mazePath.ts), pero con grillas distintas — la de escritorio
+              es notoriamente más ancha y con un poco más de recorrido para
+              justificar el espacio. Se renderizan ambas siempre (livianas)
+              y CSS decide cuál se ve, igual que el resto de los ajustes
+              responsive de este componente — así no hay que detectar el
+              viewport en JS ni remontar nada al cambiar de tamaño.
+            */}
+            <div
+              className="mt-1 w-full max-w-[330px] overflow-hidden rounded-[26px] border border-white/10 shadow-[0_20px_50px_-14px_rgba(0,0,0,0.65)] sm:max-w-[380px] lg:hidden"
+              style={{ aspectRatio: MOBILE_MAZE_ASPECT }}
+            >
+              <Maze key={attempt} layout={MOBILE_MAZE} instanceId="mobile" active={phase === "playing"} onWin={handleWin} />
+            </div>
+            <div
+              className="hidden w-full max-w-[760px] overflow-hidden rounded-[26px] border border-white/10 shadow-[0_20px_50px_-14px_rgba(0,0,0,0.65)] lg:block xl:max-w-[860px]"
+              style={{ aspectRatio: DESKTOP_MAZE_ASPECT }}
+            >
+              <Maze key={attempt} layout={DESKTOP_MAZE} instanceId="desktop" active={phase === "playing"} onWin={handleWin} />
+            </div>
 
-          <p className="text-xs text-white/55 sm:text-sm">
-            Mueve el mouse o el dedo dentro del laberinto para guiarla
-          </p>
+            <p className="text-xs text-white/55 sm:text-sm">
+              Mueve el mouse o el dedo dentro del laberinto para guiarla
+            </p>
+          </div>
         </div>
       ) : (
         <div className="fp-coupon-appear flex w-full max-w-md flex-col items-center gap-5">
+          {/*
+            Serpentinas: solo aparecen en el momento en que sale esta
+            pantalla (se monta junto con ella, ver la key/condición del
+            padre) y se apagan solas con su propia animación — no vuelven a
+            aparecer después.
+          */}
+          <Streamers />
           <div className="text-center">
             <AdipaIsotype />
             <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-[#B9AEFF] sm:text-xs">
@@ -192,9 +226,9 @@ export function MazeGameExperience() {
               <ClockIcon />
               00:00
             </div>
-            <h2 className="text-xl font-extrabold text-white sm:text-2xl">¡Se acabó el tiempo!</h2>
+            <h2 className="text-xl font-extrabold text-white sm:text-2xl">¡Se acabó el tiempo! 😢</h2>
             <p className="max-w-xs text-sm text-white/70 sm:text-base">
-              La empanada no llegó a la meta a tiempo.
+              La empanada no llegó a la meta.
             </p>
             <button
               type="button"

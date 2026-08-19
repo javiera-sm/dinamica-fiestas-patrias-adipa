@@ -9,7 +9,7 @@ import Image from "next/image";
 export function AdipaIsotype() {
   return (
     <div
-      className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-[0_10px_24px_-8px_rgba(0,0,0,0.35)] sm:mb-4 sm:h-14 sm:w-14"
+      className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-[0_10px_24px_-8px_rgba(0,0,0,0.35)] sm:mb-4 sm:h-14 sm:w-14 lg:h-16 lg:w-16"
       aria-hidden="true"
     >
       <Image
@@ -17,7 +17,7 @@ export function AdipaIsotype() {
         alt=""
         width={160}
         height={169}
-        className="h-6 w-auto sm:h-7"
+        className="h-6 w-auto sm:h-7 lg:h-8"
         priority
       />
     </div>

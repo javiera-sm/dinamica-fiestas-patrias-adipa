@@ -243,9 +243,94 @@ body {
   animation: fp-timer-intro 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/*
+ * En escritorio (mismo punto de quiebre que "lg:" de Tailwind, 1024px) el
+ * efecto de "el tiempo ya empezó" debe notarse claramente más: entrada con
+ * mayor rebote (triple oscilación) más un breve resplandor morado que
+ * destella y se apaga — un `filter: drop-shadow` en vez de box-shadow
+ * porque el contenedor es transparente (drop-shadow sigue la silueta real
+ * de la píldora, incluidas sus esquinas redondeadas). Mobile/tablet NO se
+ * toca — siguen usando fp-timer-intro tal cual arriba.
+ */
+@keyframes fp-timer-intro-desktop {
+  0% {
+    opacity: 0;
+    transform: scale(0.65) translateY(-18px);
+    filter: drop-shadow(0 0 0 rgba(139, 127, 255, 0));
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1.28) translateY(0);
+    filter: drop-shadow(0 0 20px rgba(139, 127, 255, 0.9));
+  }
+  46% {
+    transform: scale(0.88);
+    filter: drop-shadow(0 0 12px rgba(139, 127, 255, 0.5));
+  }
+  62% {
+    transform: scale(1.14);
+  }
+  78% {
+    transform: scale(0.96);
+    filter: drop-shadow(0 0 0 rgba(139, 127, 255, 0));
+  }
+  90% {
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(139, 127, 255, 0));
+  }
+}
+
+@media (min-width: 1024px) {
+  .fp-timer-intro {
+    animation: fp-timer-intro-desktop 1.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fp-timer-intro {
     animation: none;
+  }
+}
+
+/*
+ * Serpentinas de la pantalla de premios: caen desde arriba girando y se
+ * apagan solas (opacity 0 al terminar, `forwards`) — una sola vez, cuando
+ * aparece "¡Acabas de ganar 2 cupones!" (ver Streamers.tsx).
+ */
+.fp-streamer {
+  position: absolute;
+  top: -60px;
+  width: 7px;
+  height: 46px;
+  border-radius: 4px;
+  opacity: 0;
+  animation-name: fp-streamer-fall;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+  animation-fill-mode: forwards;
+}
+
+@keyframes fp-streamer-fall {
+  0% {
+    transform: translateY(0) rotate(var(--fp-streamer-rot-start, 0deg));
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: translateY(100vh) rotate(calc(var(--fp-streamer-rot-start, 0deg) + 220deg));
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-streamer {
+    animation: none;
+    opacity: 0;
   }
 }
 

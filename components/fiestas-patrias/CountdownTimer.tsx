@@ -58,11 +58,11 @@ export function CountdownTimer({ running, onExpire }: CountdownTimerProps) {
   }, [running, secondsLeft, onExpire]);
 
   return (
-    <div className={`flex flex-col items-center gap-1.5 lg:items-start ${expired ? "fp-timer-expire" : "fp-timer-intro"}`}>
-      <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8FE3D9] sm:text-sm">
+    <div className={`flex flex-col items-center gap-1.5 ${expired ? "fp-timer-expire" : "fp-timer-intro"}`}>
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-[#8FE3D9] sm:text-sm lg:text-base">
         ¡Inicia el juego!
       </p>
-      <div className="inline-flex min-w-[104px] items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-[#6C5CE7] to-[#5A3DE8] px-4 py-1.5 font-mono text-xl font-bold tabular-nums text-white shadow-[0_10px_24px_-8px_rgba(107,91,255,0.5)] sm:text-2xl">
+      <div className="inline-flex min-w-[104px] items-center justify-center gap-1.5 rounded-2xl bg-gradient-to-r from-[#6C5CE7] to-[#5A3DE8] px-4 py-1.5 font-mono text-xl font-bold tabular-nums text-white shadow-[0_10px_24px_-8px_rgba(107,91,255,0.5)] sm:text-2xl lg:min-w-[128px] lg:px-5 lg:py-2 lg:text-3xl">
         <ClockIcon />
         {formatTime(secondsLeft)}
       </div>
@@ -74,7 +74,7 @@ export function ClockIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-4 w-4 shrink-0 sm:h-5 sm:w-5"
+      className="h-4 w-4 shrink-0 sm:h-5 sm:w-5 lg:h-6 lg:w-6"
       fill="none"
       stroke="currentColor"
       strokeWidth={2}
