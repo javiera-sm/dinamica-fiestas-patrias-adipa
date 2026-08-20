@@ -26,16 +26,14 @@ function moduleAspect(layout: MazeLayout) {
 const MOBILE_MAZE_ASPECT = moduleAspect(MOBILE_MAZE);
 const DESKTOP_MAZE_ASPECT = moduleAspect(DESKTOP_MAZE);
 
-const COUPONS = [
-  {
-    code: "VIVA-5",
-    description: "En cursos y sesiones magistrales",
-  },
-  {
-    code: "CHILE-10",
-    description: "En diplomados, postítulos, acreditaciones y especializaciones",
-  },
-];
+/** Un único cupón (antes había dos, VIVA-5 y CHILE-10). */
+const COUPON = {
+  code: "VIVACHILE-2026",
+  benefits: [
+    "$3.000 en cursos y sesiones magistrales",
+    "$20.000 en diplomados, acreditaciones, especializaciones y postítulos.",
+  ],
+};
 
 /** Tiempo que se deja ver la mini-celebración en el laberinto antes de pasar a la pantalla de premios. */
 const CELEBRATION_MS = 850;
@@ -194,20 +192,12 @@ export function MazeGameExperience() {
               Fiestas Patrias ADIPA
             </p>
             <h1 className="mt-1 text-xl font-extrabold text-white sm:text-3xl">
-              ¡Acabas de ganar 2 cupones!
+              ¡Acabas de ganar tu cupón!
             </h1>
           </div>
 
-          <div className="flex w-full flex-col items-stretch gap-4 sm:flex-row sm:justify-center">
-            {COUPONS.map((coupon, index) => (
-              <CouponCard
-                key={coupon.code}
-                code={coupon.code}
-                description={coupon.description}
-                floatDelay={index * 1.4}
-                appearDelayMs={250 + index * 180}
-              />
-            ))}
+          <div className="flex w-full justify-center">
+            <CouponCard code={COUPON.code} benefits={COUPON.benefits} floatDelay={0} appearDelayMs={250} />
           </div>
 
           <a
